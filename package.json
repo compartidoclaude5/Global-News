@@ -1,0 +1,16 @@
+{
+  "name": "global-news-v2",
+  "version": "2.0.0",
+  "description": "Global News: agregador visual de noticias internacionales por país, región y categoría.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "local": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
