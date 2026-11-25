@@ -42,25 +42,42 @@ table.src{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}tabl
 .picker{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}.picker select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px;color:var(--text);font:inherit;font-size:12px}.picker .more{margin-top:9px}
 .chart{width:100%;height:auto;display:block;background:#081a2a;border:1px solid var(--line);border-radius:12px}.chart-legend{display:flex;gap:14px;font-size:10px;color:var(--muted);margin:7px 0 0}.chart-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}.peak{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:12px;line-height:1.6}
 .flagimg{width:20px;height:14px;object-fit:cover;border-radius:2px;vertical-align:-2px;box-shadow:0 0 0 1px #0004}.flag .flagimg{width:40px;height:28px;border-radius:4px}
+.tabs{grid-template-columns:1fr 1fr 1fr}
+.dsec{background:linear-gradient(160deg,#0d2639,#0a1d2e);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}.dsec-title{font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}.dsec-title small{font-size:11px;color:var(--muted);font-weight:400}.dsub{font-size:12px;font-weight:600;color:var(--cream);margin:16px 0 8px}
+.cmp-row{display:flex;align-items:center;gap:8px;margin:4px 0 12px}.cmp-row label{font-size:11px;color:var(--muted);white-space:nowrap}.cmp-row select{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;color:var(--text);font:inherit;font-size:12px}
+.hbar{width:100%;display:grid;grid-template-columns:1fr auto;grid-template-areas:"n v" "t t";gap:4px 8px;text-align:left;background:none;border:0;border-bottom:1px solid #1b3346;padding:8px 2px;color:var(--text)}button.hbar:hover{background:#0f2b40}.hb-name{grid-area:n;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hb-val{grid-area:v;font-size:11px;color:var(--muted);white-space:nowrap}.hb-track{grid-area:t;height:6px;background:#081a2a;border-radius:9px;overflow:hidden}.hb-track i{display:block;height:100%;border-radius:9px}
+.verdict{background:#081a2a;border:1px solid var(--gold);border-radius:12px;padding:11px 12px;font-size:13px;line-height:1.55;color:var(--text)}
+.handle{display:none}
 .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#0d2639;border:1px solid var(--gold);color:var(--cream);padding:10px 16px;border-radius:12px;font-size:12px;z-index:4000;opacity:0;transition:opacity .25s;pointer-events:none}.toast.show{opacity:1}
 .bottom{display:none}
-@media(max-width:900px){.main{grid-template-columns:1fr}.side{position:fixed;z-index:1200;left:0;right:0;bottom:64px;max-height:58vh;border:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0}#map{height:calc(100vh - 70px);min-height:500px}.map-help{display:none}.bottom{display:flex;position:fixed;z-index:2000;bottom:0;left:0;right:0;height:64px;background:#071827;border-top:1px solid var(--line);justify-content:space-around;align-items:center}.bottom button{border:0;background:transparent;color:#9eb0be;font-size:10px}.bottom button.active{color:var(--gold)}.top-actions .status{display:none}.archive{grid-template-columns:1fr}}
+@media(max-width:900px){
+ .top{height:56px;padding:0 12px}.logo{width:34px;height:34px;border-radius:10px}.logo span:first-child{font-size:18px;left:5px;top:3px}.logo span:last-child{font-size:17px;right:4px;bottom:1px}.brand b{font-size:12px;letter-spacing:2px}.brand small{display:none}.top-actions .status,.top-actions .txt{display:none}.top-actions .btn{padding:8px 11px;font-size:15px}
+ .main{display:block;min-height:0}section{height:calc(100dvh - 56px - 64px)}#map{height:calc(100dvh - 56px - 64px);min-height:0}
+ .map-help{display:block;top:10px;left:10px;bottom:auto;right:auto;padding:7px 9px;font-size:9px;max-width:230px}.map-help .help-text{display:none}.map-help .legend{margin-top:0;gap:7px}.map-help .legend+.legend{margin-top:4px}
+ .side{position:fixed;z-index:1200;left:0;right:0;bottom:64px;height:50dvh;max-height:none;border:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:0 14px 20px;transition:height .25s ease;box-shadow:0 -12px 30px #0009}.side.dragging{transition:none}
+ .handle{display:flex;flex-direction:column;align-items:center;gap:5px;position:sticky;top:0;z-index:5;background:var(--panel);margin:0 -14px 6px;padding:9px 0 8px;touch-action:none;cursor:grab;border-radius:20px 20px 0 0}.handle i{display:block;width:46px;height:5px;border-radius:9px;background:#3d5c72}.handle span{font-size:10px;color:var(--muted)}
+ body[data-sheet=peek] .handle span:after{content:"Desliza hacia arriba para ver el panel"}body[data-sheet=half] .handle span:after,body[data-sheet=full] .handle span:after{content:"Desliza hacia abajo para ver el mapa"}
+ .hero{display:none}
+ .bottom{display:flex;position:fixed;z-index:2000;bottom:0;left:0;right:0;height:64px;background:#071827;border-top:1px solid var(--line);justify-content:space-around;align-items:center}.bottom button{border:0;background:transparent;color:#9eb0be;font-size:10px;line-height:1.5;padding:6px 4px}.bottom button.active{color:var(--gold)}.bottom button b{font-size:16px;font-weight:400}
+ .archive{grid-template-columns:1fr}.modal{padding:8px}.modalbox{padding:16px;max-height:94dvh}.modalbox h2{font-size:19px}.stats{grid-template-columns:1fr 1fr}.leaflet-control-zoom{display:none}
+}
 </style>
 </head>
 <body>
 <div class="app">
 <header class="top">
  <div class="brand"><div class="logo"><span>G</span><span>N</span></div><div><b>GLOBAL NEWS</b><small>EL MUNDO. EN TUS MANOS.</small></div></div>
- <div class="top-actions"><span class="status" id="status"><i class="dot"></i>Conectando fuentes…</span><button class="btn" onclick="showSaved()">☆ Guardados <b id="savedCount"></b></button><button class="btn" onclick="openSettings()">Configuración</button></div>
+ <div class="top-actions"><span class="status" id="status"><i class="dot"></i>Conectando fuentes…</span><button class="btn" onclick="showSaved()" title="Guardados">☆<span class="txt"> Guardados</span> <b id="savedCount"></b></button><button class="btn" onclick="openSettings()" title="Configuración">⚙<span class="txt"> Configuración</span></button></div>
 </header>
 <main class="main">
  <section style="position:relative"><div id="map"></div>
-  <div class="map-help">Selecciona un país en el mapa para cargar sus noticias
+  <div class="map-help"><span class="help-text">Selecciona un país en el mapa para cargar sus noticias</span>
    <div class="legend"><span><i style="background:#2f7d58;border:1px solid #6fd39b"></i>Con noticias <b id="lgYes"></b></span><span><i style="background:#101d27;border:1px dashed #5b6c78"></i>Próximamente <b id="lgNo"></b></span><span id="lgPend"><i style="background:#18364a;border:1px solid #4b6374"></i>Verificando</span></div>
    <div class="legend"><span><i style="background:#6fd39b"></i>Estable</span><span><i style="background:#e3c567"></i>Roces</span><span><i style="background:#e8954f"></i>Tensión</span><span><i style="background:#e0605a"></i>Crítica</span></div>
   </div>
  </section>
  <aside class="side" id="side">
+  <div class="handle" id="handle"><i></i><span></span></div>
   <div class="hero"><h1>Explora el mundo</h1><p>Noticias actuales e históricas por país y fecha, y las tensiones entre países.</p></div>
   <div class="search"><input id="search" placeholder="Buscar país o tema..." onkeydown="if(event.key==='Enter')doSearch()"><button class="btn gold" onclick="doSearch()">Buscar</button></div>
 
@@ -78,7 +95,8 @@ table.src{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}tabl
    <p class="hint">Último mes: todas las fuentes. Hasta 3 meses: GDELT. Más antiguas: The Guardian (desde 1999), The New York Times (desde 1851), Chronicling America (1756–1963) y portadas guardadas por Internet Archive.</p>
   </div>
 
-  <div class="tabs"><button class="tab active" data-t="news" onclick="setTab('news')">Noticias</button><button class="tab" data-t="geo" onclick="setTab('geo')">Geopolítica</button></div>
+  <div class="tabs"><button class="tab active" data-t="news" onclick="setTab('news')">Noticias</button><button class="tab" data-t="geo" onclick="setTab('geo')">Geopolítica</button><button class="tab" data-t="data" onclick="setTab('data')">Datos</button></div>
+  <div id="tabData" style="display:none"><div id="dataBody"></div></div>
   <div id="tabGeo" style="display:none">
    <div class="geo-head"><div class="chips small"><button class="chip gdays active" data-d="7" onclick="setGeoDays(7)">7 días</button><button class="chip gdays" data-d="30" onclick="setGeoDays(30)">30 días</button></div><button class="linkbtn" onclick="openMethod()">¿Cómo se calcula?</button></div>
    <div id="geoBody"></div>
@@ -93,7 +111,7 @@ table.src{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}tabl
   </div>
  </aside>
 </main>
-<nav class="bottom"><button class="active" onclick="resetWorld()">◉<br>Inicio</button><button onclick="setTab('geo')">⚑<br>Geopolítica</button><button onclick="toggleDates(true)">◷<br>Fechas</button><button onclick="showSaved()">☆<br>Guardados</button><button onclick="openSettings()">○<br>Fuentes</button></nav>
+<nav class="bottom"><button data-n="map" onclick="navTo('map')"><b>◉</b><br>Mapa</button><button class="active" data-n="news" onclick="navTo('news')"><b>▤</b><br>Noticias</button><button data-n="geo" onclick="navTo('geo')"><b>⚑</b><br>Geopolítica</button><button data-n="data" onclick="navTo('data')"><b>▦</b><br>Datos</button><button onclick="showSaved()"><b>☆</b><br>Guardados</button></nav>
 </div>
 <div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><button class="btn close" onclick="closeModal()">Cerrar</button><div id="modalContent"></div></div></div>
 <div class="toast" id="toast"></div>
@@ -113,7 +131,7 @@ const dnEs=(()=>{try{return new Intl.DisplayNames(['es'],{type:'region',fallback
 const fold=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 
 /* ---------- Mapa ---------- */
-const map=L.map('map',{minZoom:2,maxZoom:6,zoomControl:false,worldCopyJump:true}).setView([18,0],2);
+const map=L.map('map',{minZoom:window.innerWidth<=900?1:2,maxZoom:6,zoomControl:false,worldCopyJump:true}).setView([18,0],window.innerWidth<=900?1:2);
 L.control.zoom({position:'bottomright'}).addTo(map);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
 
@@ -231,11 +249,12 @@ function doSearch(){
 }
 function selectCountry(c){
  state.country=c;selectedKey=c.key;state.q='';$('search').value='';refreshStyles();
- if(geoLayer)geoLayer.eachLayer(l=>{if(info(l.feature).key===c.key){const b=l.getBounds();if(c.pt&&b&&b.getEast&&b.getEast()-b.getWest()>90)map.setView(c.pt,3);else if(b)map.fitBounds(b,{maxZoom:4,padding:[20,20]})}});
- loadFicha(c);loadNews();$('geoBody').innerHTML='';loadGeopolitics();
- if(window.innerWidth<=900)$('side').scrollTop=0;
+ if(isMobile()&&sheet.state==='peek')setSheet('half');
+ focusCountry(c);
+ loadFicha(c);loadNews();$('geoBody').innerHTML='';loadGeopolitics();if(geo.tab==='data')loadData();
+ $('side').scrollTop=0;
 }
-function resetWorld(){state.country=null;selectedKey='';state.q='';$('search').value='';$('ficha').innerHTML='';refreshStyles();map.setView([18,0],2);loadNews();$('geoBody').innerHTML='';loadGeopolitics()}
+function resetWorld(){state.country=null;selectedKey='';state.q='';$('search').value='';$('ficha').innerHTML='';refreshStyles();worldView();loadNews();$('geoBody').innerHTML='';loadGeopolitics();if(geo.tab==='data')loadData()}
 
 /* ---------- Noticias ---------- */
 async function loadNews(){
@@ -331,9 +350,11 @@ const nameOf=c3=>byIso3.get(c3)?.es||c3;
 const flagOf3=c3=>flag(byIso3.get(c3)?.code||'');
 function ptOf(c){if(c.pt)return c.pt;try{const ce=c.layer.getBounds().getCenter();return [ce.lat,ce.lng]}catch{return null}}
 function setTab(t){
- geo.tab=t;$('tabNews').style.display=t==='news'?'':'none';$('tabGeo').style.display=t==='geo'?'':'none';
+ geo.tab=t;$('tabNews').style.display=t==='news'?'':'none';$('tabGeo').style.display=t==='geo'?'':'none';$('tabData').style.display=t==='data'?'':'none';
  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+ document.querySelectorAll('.bottom button[data-n]').forEach(b=>b.classList.toggle('active',b.dataset.n===t));
  if(t==='geo')loadGeopolitics();
+ if(t==='data')loadData();
 }
 function setGeoDays(d){geo.days=d;document.querySelectorAll('.gdays').forEach(b=>b.classList.toggle('active',+b.dataset.d===d));loadGeopolitics()}
 function drawLines(pairs){
@@ -410,7 +431,7 @@ async function openRelation(a,b){
  $('modalContent').innerHTML=`<h2>${title}</h2><p>Cargando la historia de la relación…</p>`;$('modal').classList.add('show');
  let d=null;try{d=await fetch(`/api/relacion?a=${a}&b=${b}`).then(r=>r.json())}catch{}
  if(!d||d.error){$('modalContent').innerHTML=`<h2>${title}</h2><p>${esc(d?.error||'No se pudo cargar la relación.')}</p>`;return}
- if(!d.summary){$('modalContent').innerHTML=`<h2>${title}</h2><p>Casi no hay eventos registrados entre estos dos países en los últimos ${d.days} días, así que no se puede medir su relación.</p>${d.status?.loading?'<p class="geo-note">El historial todavía se está descargando; vuelve a intentarlo en unos minutos.</p>':''}`;return}
+ if(!d.summary){$('modalContent').innerHTML=`<h2>${title}</h2><p>Casi no hay eventos registrados entre estos dos países en los últimos ${d.days} días, así que no se puede medir su tensión.</p>${d.status?.loading?'<p class="geo-note">El historial todavía se está descargando; vuelve a intentarlo en unos minutos.</p>':''}<div class="archive-title" style="margin-top:18px">SI SE PELEAN, ¿QUIÉN PIERDE MÁS?</div><div id="depBox"><div class="loading">Consultando UN Comtrade…</div></div>`;loadDependency(a,b);return}
  const S=d.summary,W=d.last7;
  const box=(label,t)=>t?`<div class="stat"><span>${label}</span><b style="color:${LEVELS[t.level][1]}">${t.index}/100</b> <i>${LEVELS[t.level][0]}</i></div>`:`<div class="stat"><span>${label}</span><b>—</b></div>`;
  const peaks=d.peaks.length?`<div class="archive-title" style="margin-top:16px">DÍAS DE MAYOR TENSIÓN</div>`+d.peaks.map(p=>`<div class="peak"><b style="color:${LEVELS[p.level][1]}">${dayOnly(p.date+'T12:00:00')}</b> · índice ${p.index} · ${fmtInt(p.events)} eventos<br>${p.sources.length?'Noticias de ese día: '+p.sources.map(s=>`<a class="linkbtn" href="${safeUrl(s.url)}" target="_blank" rel="noopener noreferrer">${esc(hostOf(s.url))} ↗</a>`).join(' · '):''}</div>`).join(''):'';
@@ -420,7 +441,9 @@ async function openRelation(a,b){
   <div class="archive-title" style="margin-top:16px">ÍNDICE DE TENSIÓN DÍA POR DÍA</div>${chartSvg(d.series)}
   <div class="chart-legend"><span><i style="background:#c9a36a"></i>Índice de tensión</span><span><i style="background:#2d4a60"></i>Cantidad de eventos</span></div>
   ${peaks}
-  <p class="geo-note">Datos: GDELT, a partir de noticias de todo el mundo. <button class="linkbtn" onclick="openMethod()">¿Cómo se calcula?</button></p>`;
+  <p class="geo-note">Datos: GDELT, a partir de noticias de todo el mundo. <button class="linkbtn" onclick="openMethod()">¿Cómo se calcula?</button></p>
+  <div class="archive-title" style="margin-top:18px">SI SE PELEAN, ¿QUIÉN PIERDE MÁS?</div><div id="depBox"><div class="loading">Consultando el comercio entre ambos en UN Comtrade…</div></div>`;
+ loadDependency(a,b);
 }
 function relationSentence(d){
  const S=d.summary,W=d.last7,A=esc(nameOf(d.a)),B=esc(nameOf(d.b));
@@ -430,8 +453,8 @@ function relationSentence(d){
  return s;
 }
 function hostOf(u){try{return new URL(u).hostname.replace(/^www\./,'')}catch{return'fuente'}}
-function chartSvg(series){
- const W=620,H=210,l=30,r=8,t=8,b=24,iw=W-l-r,ih=H-t-b,n=Math.max(series.length,2);
+function chartSvg(series,W=(isMobile()?400:620)){
+ const H=W<500?190:210,l=30,r=8,t=8,b=24,iw=W-l-r,ih=H-t-b,n=Math.max(series.length,2);
  const x=i=>l+(series.length<2?iw/2:i*iw/(n-1)),y=v=>t+ih-(v/100)*ih;
  const maxE=Math.max(1,...series.map(s=>s.events));
  const bw=Math.max(2,iw/n*0.6);
@@ -457,6 +480,162 @@ function openMethod(){
  <p><b>Niveles:</b> <span style="color:#6fd39b">0–24 Estable</span> · <span style="color:#e3c567">25–44 Roces</span> · <span style="color:#e8954f">45–64 Tensión</span> · <span style="color:#e0605a">65–100 Crítica</span>. Las flechas comparan con el periodo anterior de la misma duración.</p>
  <p><b>Límites.</b> Es un indicador construido a partir de lo que publica la prensa, no una medida oficial: refleja lo que los medios cuentan, y los temas muy mediáticos pesan más. Para el historial se toma una muestra de un archivo cada 2 horas; desde que el servidor está encendido se suman todos los archivos nuevos. Solo se muestran parejas con suficientes eventos para que el resultado sea confiable.</p>`;
  $('modal').classList.add('show');
+}
+
+
+/* ---------- Datos: gráficas de economía, comercio y clima ---------- */
+const data={ind:'gdp',cmp:'',flow:'X',token:0,trade:null,country:null};
+const IND_CHIPS=[['gdp','PIB'],['growth','Crecimiento'],['gdppc','PIB por persona'],['inflation','Inflación'],['unemployment','Desempleo'],['military','Gasto militar']];
+const COLORS=['#c9a36a','#6fb7e8','#e0605a','#6fd39b'];
+const fmtVal=(v,unit)=>unit==='pct'?nf({maximumFractionDigits:1}).format(v)+' %':usd(v);
+function dataCountry(){return state.country&&state.country.iso3?state.country:byIso3.get('COL')}
+function loadData(){
+ const c=dataCountry(),box=$('dataBody');
+ if(!c){box.innerHTML='<div class="loading">Cargando el mapa…</div>';return}
+ const token=++data.token;data.country=c;
+ if(data.cmp===c.iso3)data.cmp='';
+ box.innerHTML=`${!state.country?'<p class="geo-note">Elige un país en el mapa. Mientras tanto te mostramos Colombia.</p>':''}
+  <div class="dsec"><div class="dsec-title">${flag(c.code)} Economía de ${esc(c.es)}</div><div class="chips small" id="indChips"></div>
+   <div class="cmp-row"><label for="cmpSel">Comparar con</label><select id="cmpSel" onchange="data.cmp=this.value;loadSeries()"></select></div>
+   <div id="seriesBox"><div class="loading">Cargando datos del Banco Mundial…</div></div></div>
+  <div class="dsec"><div class="dsec-title">Comercio exterior <small id="tradeYear"></small></div><div id="tradeBox"><div class="loading">Consultando UN Comtrade… la primera vez puede tardar unos segundos.</div></div></div>
+  <div class="dsec"><div class="dsec-title">Clima internacional · día por día</div><div id="climaBox"><div class="loading">Cargando…</div></div></div>
+  <p class="geo-note">Fuentes: Banco Mundial, UN Comtrade (la base de datos de la que sale la mayor parte de la información de Trade Map) y GDELT.</p>`;
+ drawIndChips();fillCmp(c);loadSeries();loadTrade(c,token);loadClima(c,token);
+}
+function drawIndChips(){$('indChips').innerHTML=IND_CHIPS.map(([k,l])=>`<button class="chip ${k===data.ind?'active':''}" onclick="data.ind='${k}';drawIndChips();loadSeries()">${l}</button>`).join('')}
+function fillCmp(c){
+ const list=[...byIso3.values()].filter(x=>x.iso3!==c.iso3).sort((x,y)=>x.es.localeCompare(y.es,'es'));
+ $('cmpSel').innerHTML='<option value="">Ningún país</option>'+list.map(x=>`<option value="${x.iso3}">${esc(x.es)}</option>`).join('');
+ $('cmpSel').value=data.cmp;
+}
+async function loadSeries(){
+ const c=data.country,box=$('seriesBox');if(!c||!box)return;
+ const codes=[c.iso3,data.cmp].filter(Boolean);
+ box.innerHTML='<div class="loading">Cargando…</div>';
+ try{
+  const d=await fetch(`/api/serie?ind=${data.ind}&iso3=${codes.join(',')}`).then(r=>r.json());
+  if(d.error)throw new Error(d.error);
+  const lines=codes.map((k,i)=>({name:nameOf(k),color:COLORS[i],points:(d.series[k]||[]).map(p=>({x:p.year,y:p.value}))}));
+  const last=lines.map(l=>{const p=l.points[l.points.length-1];return p?`<div class="stat"><span>${esc(l.name.toUpperCase())}</span><b style="color:${l.color}">${fmtVal(p.y,d.unit)}</b> <i>(${p.x})</i></div>`:''}).join('');
+  box.innerHTML=`<div class="stats" style="margin:0 0 10px">${last}</div>`+lineChart(lines,{fmt:v=>fmtVal(v,d.unit),zero:d.unit==='usd'})+legendHtml(lines)+(d.ind==='military'?'<p class="geo-note">El Banco Mundial toma el gasto militar de SIPRI (Instituto Internacional de Estocolmo para la Investigación de la Paz).</p>':'');
+ }catch(e){box.innerHTML=`<div class="empty">No hay datos de este indicador para ${esc(c.es)}.</div>`}
+}
+async function loadTrade(c,token){
+ const p=new URLSearchParams({iso3:c.iso3,name:c.en});if(c.code)p.set('code',c.code);
+ try{
+  const d=await fetch('/api/comercio?'+p).then(r=>r.json());
+  if(token!==data.token)return;
+  if(d.error)throw new Error(d.error);
+  data.trade=d.trade;renderTrade();
+ }catch(e){if(token===data.token)$('tradeBox').innerHTML=`<div class="error">UN Comtrade no respondió. Intenta de nuevo en un minuto.<br><small>${esc(e.message)}</small></div>`}
+}
+function renderTrade(){
+ const t=data.trade,c=data.country,box=$('tradeBox');if(!box)return;
+ if(!t){box.innerHTML=`<div class="empty">UN Comtrade no tiene datos de comercio de ${esc(c.es)}.</div>`;return}
+ $('tradeYear').textContent=`· ${t.year}`;
+ const bal=(t.exports||0)-(t.imports||0);
+ const list=(data.flow==='X'?t.partnersX:t.partnersM).slice(0,10);
+ const max=Math.max(...list.map(p=>p.value),1);
+ const rows=list.map(p=>{const pc=byIso3.get(p.iso3);return `<button class="hbar" onclick="openRelation('${c.iso3}','${p.iso3}')" title="Ver la relación y la dependencia"><span class="hb-name">${pc?flag(pc.code):''} ${esc(pc?pc.es:p.name)}</span><span class="hb-val">${usd(p.value)}${p.share!=null?` · ${pct(p.share)}`:''}</span><span class="hb-track"><i style="width:${p.value/max*100}%;background:${data.flow==='X'?'#c9a36a':'#6fb7e8'}"></i></span></button>`}).join('');
+ const prodMax=Math.max(...t.products.map(p=>p.value),1);
+ const prods=t.products.slice(0,8).map(p=>`<div class="hbar static"><span class="hb-name">${esc(trim(p.name,46))}</span><span class="hb-val">${usd(p.value)}${p.share!=null?` · ${pct(p.share)}`:''}</span><span class="hb-track"><i style="width:${p.value/prodMax*100}%;background:#6fd39b"></i></span></div>`).join('');
+ const hist=[{name:'Exportaciones',color:'#c9a36a',points:t.history.filter(h=>h.exports!=null).map(h=>({x:h.year,y:h.exports}))},{name:'Importaciones',color:'#6fb7e8',points:t.history.filter(h=>h.imports!=null).map(h=>({x:h.year,y:h.imports}))}];
+ box.innerHTML=`<div class="stats" style="margin:0 0 12px"><div class="stat"><span>EXPORTACIONES</span><b style="color:#c9a36a">${usd(t.exports)}</b></div><div class="stat"><span>IMPORTACIONES</span><b style="color:#6fb7e8">${usd(t.imports)}</b></div><div class="stat" style="grid-column:1/-1"><span>BALANZA COMERCIAL</span><b style="color:${bal>=0?'#6fd39b':'#e0605a'}">${bal>=0?'Superávit':'Déficit'} de ${usd(Math.abs(bal))}</b> <i>${bal>=0?'vende más de lo que compra':'compra más de lo que vende'}</i></div></div>
+  <div class="chips small"><button class="chip ${data.flow==='X'?'active':''}" onclick="data.flow='X';renderTrade()">A quién le vende</button><button class="chip ${data.flow==='M'?'active':''}" onclick="data.flow='M';renderTrade()">A quién le compra</button></div>
+  ${rows||'<div class="empty">Sin detalle por país.</div>'}
+  <p class="geo-note">Toca un país para ver su relación y quién depende más de quién.</p>
+  <div class="dsub">Evolución del comercio</div>${lineChart(hist,{fmt:usd,zero:true,height:180})}${legendHtml(hist)}
+  ${prods?`<div class="dsub">Qué exporta (${t.year})</div>${prods}`:''}`;
+}
+async function loadClima(c,token){
+ try{
+  const d=await fetch(`/api/clima?code=${c.iso3}`).then(r=>r.json());
+  if(token!==data.token)return;
+  const ok=d.series.filter(s=>s.index!=null);
+  $('climaBox').innerHTML=ok.length?chartSvg(d.series,400)+'<div class="chart-legend"><span><i style="background:#c9a36a"></i>Índice de tensión con todos sus socios</span><span><i style="background:#2d4a60"></i>Eventos</span></div>':'<div class="empty">Todavía no hay suficientes eventos para este país.</div>';
+ }catch{if(token===data.token)$('climaBox').innerHTML='<div class="empty">No se pudo cargar.</div>'}
+}
+function legendHtml(lines){return `<div class="chart-legend">${lines.filter(l=>l.points.length).map(l=>`<span><i style="background:${l.color}"></i>${esc(l.name)}</span>`).join('')}</div>`}
+function lineChart(lines,{fmt=v=>v,zero=false,height=200}={}){
+ const pts=lines.flatMap(l=>l.points);if(!pts.length)return'<div class="empty">Sin datos para este indicador.</div>';
+ const W=420,H=Math.round(height*0.78),l=96,r=12,t=10,b=24,iw=W-l-r,ih=H-t-b;
+ const x0=Math.min(...pts.map(p=>p.x)),x1=Math.max(...pts.map(p=>p.x));
+ let y0=Math.min(...pts.map(p=>p.y)),y1=Math.max(...pts.map(p=>p.y));
+ if(zero&&y0>0)y0=0;if(y0===y1){y0-=1;y1+=1}const pad=(y1-y0)*0.06;y1+=pad;if(!(zero&&y0===0))y0-=pad;
+ const X=v=>l+(x1===x0?iw/2:(v-x0)/(x1-x0)*iw),Y=v=>t+ih-(v-y0)/(y1-y0)*ih;
+ let svg=`<svg viewBox="0 0 ${W} ${H}" class="chart" role="img">`;
+ for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4;svg+=`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#284154"/><text x="${l-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#9eb0be">${esc(fmt(v))}</text>`}
+ if(y0<0&&y1>0)svg+=`<line x1="${l}" x2="${W-r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#9eb0be" stroke-dasharray="3 3"/>`;
+ for(const ln of lines){
+  if(!ln.points.length)continue;
+  svg+=`<path d="${ln.points.map((p,i)=>`${i?'L':'M'}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join('')}" fill="none" stroke="${ln.color}" stroke-width="2.2"/>`;
+  svg+=ln.points.map(p=>`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${ln.points.length>20?2:3}" fill="${ln.color}"><title>${esc(ln.name)} ${p.x}: ${esc(fmt(p.y))}</title></circle>`).join('');
+ }
+ const xt=[...new Set([x0,Math.round((x0+x1)/2),x1])];
+ xt.forEach((v,i)=>{const anc=xt.length>1&&i===0?'start':xt.length>1&&i===xt.length-1?'end':'middle';svg+=`<text x="${anc==='start'?l:anc==='end'?W-r:X(v)}" y="${H-6}" text-anchor="${anc}" font-size="11" fill="#9eb0be">${v}</text>`});
+ return svg+'</svg>';
+}
+async function loadDependency(a,b){
+ const box=$('depBox');if(!box)return;
+ const A=byIso3.get(a),B=byIso3.get(b);
+ const p=new URLSearchParams({a,b,acode:A?.code||'',bcode:B?.code||''});
+ try{
+  const d=await fetch('/api/dependencia?'+p).then(r=>r.json());
+  if(!$('depBox'))return;
+  if(d.error||!d.available){box.innerHTML='<div class="empty">UN Comtrade no tiene datos de comercio entre estos dos países.</div>';return}
+  const na=esc(nameOf(a)),nb=esc(nameOf(b));
+  const col=(n,x,side)=>`<div class="stat"><span>${n.toUpperCase()} LE VENDE A ${side.toUpperCase()}</span><b>${x.share!=null?pct(x.share):'—'}</b> <i>de todo lo que exporta</i><br><i>${usd(x.exportsTo)}${x.totalExports?` de ${usd(x.totalExports)}`:''}</i></div>`;
+  let verdict;
+  const sa=d.a.share,sb=d.b.share;
+  if(sa==null||sb==null)verdict='No hay datos suficientes de los dos lados para comparar.';
+  else if(sa<0.02&&sb<0.02)verdict=`El comercio entre ${na} y ${nb} es pequeño para ambos: una pelea casi no afectaría sus economías.`;
+  else if(sa>sb*1.5)verdict=`<b>${na} depende más de ${nb}</b>: le manda ${pct(sa)} de sus exportaciones, mientras que ${nb} solo le manda ${pct(sb)}. Si se pelean, ${na} pierde más.`;
+  else if(sb>sa*1.5)verdict=`<b>${nb} depende más de ${na}</b>: le manda ${pct(sb)} de sus exportaciones, mientras que ${na} solo le manda ${pct(sa)}. Si se pelean, ${nb} pierde más.`;
+  else verdict=`La dependencia es parecida: ${na} le manda ${pct(sa)} de sus exportaciones y ${nb} le manda ${pct(sb)}. Ambos perderían algo similar.`;
+  box.innerHTML=`<div class="stats">${col(na,d.a,nb)}${col(nb,d.b,na)}</div><p class="verdict">${verdict}</p><p class="geo-note">Comercio de bienes ${d.year}, UN Comtrade. Lo que ${nb} le vende a ${na} se calcula con lo que ${na} reporta que le compra (datos espejo).</p>`;
+ }catch{if($('depBox'))box.innerHTML='<div class="empty">No se pudo consultar UN Comtrade.</div>'}
+}
+
+/* ---------- Celular: panel que sube y baja ---------- */
+const sheet={state:'half'};
+const isMobile=()=>window.innerWidth<=900;
+function sheetHeights(){const avail=window.innerHeight-56-64;return{peek:118,half:Math.round(avail*0.55),full:avail}}
+function setSheet(s){
+ sheet.state=s;document.body.dataset.sheet=s;
+ if(!isMobile()){$('side').style.height='';return}
+ $('side').style.height=sheetHeights()[s]+'px';
+}
+function sheetVisible(){return isMobile()?(sheetHeights()[sheet.state]+64):0}
+(function initSheet(){
+ const h=$('handle');let y0=0,h0=0,moved=false,drag=false;
+ const start=y=>{drag=true;moved=false;y0=y;h0=$('side').getBoundingClientRect().height;$('side').classList.add('dragging')};
+ const move=y=>{if(!drag)return;const dy=y0-y;if(Math.abs(dy)>6)moved=true;const H=sheetHeights();$('side').style.height=Math.min(H.full,Math.max(H.peek,h0+dy))+'px'};
+ const end=()=>{if(!drag)return;drag=false;$('side').classList.remove('dragging');
+  if(!moved){setSheet(sheet.state==='peek'?'half':sheet.state==='half'?'full':'peek');return}
+  const cur=$('side').getBoundingClientRect().height,H=sheetHeights();
+  const best=Object.entries(H).sort((a,b)=>Math.abs(a[1]-cur)-Math.abs(b[1]-cur))[0][0];setSheet(best)};
+ h.addEventListener('touchstart',e=>start(e.touches[0].clientY),{passive:true});
+ h.addEventListener('touchmove',e=>{move(e.touches[0].clientY);e.preventDefault()},{passive:false});
+ h.addEventListener('touchend',end);
+ h.addEventListener('mousedown',e=>{start(e.clientY);const mm=ev=>move(ev.clientY),mu=()=>{end();removeEventListener('mousemove',mm);removeEventListener('mouseup',mu)};addEventListener('mousemove',mm);addEventListener('mouseup',mu)});
+ addEventListener('resize',()=>setSheet(sheet.state));
+ setSheet('half');
+})();
+function worldView(){map.setView([18,0],isMobile()?1:2);if(isMobile())map.panBy([0,Math.round(sheetVisible()/2)])}
+function navTo(t){
+ document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('active',b.dataset.n===t));
+ if(t==='map'){setSheet('peek');return}
+ setTab(t);if(sheet.state==='peek')setSheet('half');
+ $('side').scrollTop=0;
+}
+/* Encuadra el país teniendo en cuenta lo que tapa el panel en el celular */
+function focusCountry(c){
+ let b=null;
+ try{b=c.layer.getBounds()}catch{}
+ if(c.pt&&(!b||b.getEast()-b.getWest()>90))b=L.latLngBounds([c.pt[0]-14,c.pt[1]-22],[c.pt[0]+14,c.pt[1]+22]);
+ if(!b)return;
+ map.fitBounds(b,{maxZoom:4,paddingTopLeft:[20,20],paddingBottomRight:[20,20+sheetVisible()]});
 }
 
 /* ---------- Utilidades ---------- */
@@ -496,7 +675,7 @@ async function openSettings(){
 }
 function closeModal(){$('modal').classList.remove('show')}
 
-drawChips();drawPresets();drawDateLabel();updateSavedCount();loadStatus();loadGeo();loadNews();
+drawChips();drawPresets();drawDateLabel();updateSavedCount();worldView();loadStatus();loadGeo();loadNews();
 </script>
 </body>
 </html>
