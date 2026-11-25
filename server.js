@@ -443,17 +443,18 @@ async function runGdelt() {
         let d;
         const url = gdeltScheme === "http" ? job.url.replace("https://", "http://") : job.url;
         try {
-          d = await getJSON(url, { timeout: 15000 });
+          d = await getJSON(url, { timeout: 9000 });
         } catch (e) {
           if (!e.network) throw e;
           const other = url.startsWith("https://") ? url.replace("https://", "http://") : url.replace("http://", "https://");
-          d = await getJSON(other, { timeout: 15000 });
+          d = await getJSON(other, { timeout: 9000 });
           gdeltScheme = other.startsWith("https://") ? "https" : "http";
         }
         gdeltGap = 5500;
         job.resolve(d);
       } catch (e) {
         if (/limit|429|too many/i.test(e.message)) gdeltGap = 12000;
+        if (e.network) gdeltDownUntil = Date.now() + 10 * 60 * 1000;
         job.reject(e);
       }
     }
@@ -463,9 +464,11 @@ function gdeltTerm(name) {
   const n = fold(name).replace(/[^A-Za-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   return /\s/.test(n) ? `"${n}"` : n;
 }
+let gdeltDownUntil = 0;
 async function pGdelt(ctx) {
   const w = windowFor(ctx, 89);
   if (!w) return null;
+  if (Date.now() < gdeltDownUntil) return null; // no respondió hace poco: no hacemos esperar al usuario
   const parts = [];
   if (ctx.country) parts.push(gdeltTerm(ctx.country.en));
   const cat = CATEGORIES[ctx.category];
@@ -556,7 +559,7 @@ function normTitle(t) { return fold(t).toLowerCase().replace(/[^a-z0-9]+/g, " ")
 async function aggregate(ctx) {
   const active = NEWS_PROVIDERS.filter(p => isOn(p.id));
   const [settled, archive] = await Promise.all([
-    Promise.allSettled(active.map(p => withTimeout(p.fn(ctx), p.id === "gdelt" ? 30000 : 15000))),
+    Promise.allSettled(active.map(p => withTimeout(p.fn(ctx), p.id === "gdelt" ? 20000 : 15000))),
     ctx.from ? withTimeout(pWayback(ctx), 15000).catch(() => []) : Promise.resolve([])
   ]);
 
@@ -611,32 +614,200 @@ function setCoverage(code, n, src) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => fs.writeFile(COVERAGE_FILE, JSON.stringify(coverage), () => {}), 3000);
 }
-const coverageQueue = new Set();
-let coverageRunning = false, coverageFails = 0;
-async function runCoverage() {
-  if (coverageRunning) return;
-  coverageRunning = true;
-  try {
-    while (coverageQueue.size) {
-      const code = coverageQueue.values().next().value;
-      coverageQueue.delete(code);
-      const e = coverage[code];
-      if (e && Date.now() - e.at < COVERAGE_TTL) continue;
-      const c = countryFrom({ code });
-      if (!c) continue;
-      try {
-        const params = new URLSearchParams({ query: gdeltTerm(c.en), mode: "ArtList", format: "json", maxrecords: "10", timespan: "7d" });
-        const d = await gdeltFetch(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, "low");
-        setCoverage(code, (d.articles || []).length, "gdelt");
-        coverageFails = 0;
-      } catch {
-        coverageQueue.add(code); // se vuelve a intentar más tarde
-        if (++coverageFails >= 3) { coverageFails = 0; await sleep(5 * 60 * 1000); }
-        else await sleep(10000);
+
+/* ------------------------------------------------------------------ */
+/* 5b. Eventos GDELT: tensiones entre países                           */
+/* ------------------------------------------------------------------ */
+/*
+ * GDELT publica cada 15 minutos un archivo con los eventos del mundo que
+ * aparecieron en la prensa: quién hizo qué a quién. Cada evento trae:
+ *   - el país de cada actor (código de 3 letras, p. ej. COL, VEN, USA)
+ *   - QuadClass: 1 cooperación verbal, 2 cooperación material,
+ *                3 conflicto verbal, 4 conflicto material
+ *   - escala Goldstein: de -10 (conflicto) a +10 (cooperación)
+ *   - cuántos artículos lo mencionaron
+ * Para el historial se toma una muestra (1 archivo cada 2 horas) y desde que
+ * el servidor arranca se suman todos los archivos nuevos.
+ */
+const zlib = require("zlib");
+const EV_DAYS = Math.min(Math.max(Number(process.env.EVENT_DAYS || 30), 3), 60);
+const SAMPLE_EVERY_H = 2;
+const SAMPLE_WEIGHT = SAMPLE_EVERY_H * 4; // 1 de cada 8 archivos de 15 minutos
+const EV_START = Date.now();
+const evDays = new Map();       // "AAAAMMDD" -> { pairs: Map("COL|VEN" -> registro), countries: Map("COL" -> eventos) }
+const evProcessed = new Set();
+const evStatus = { loading: true, filesOk: 0, filesMissing: 0, filesFailed: 0, filesTotal: 0, lastFile: null, lastError: null };
+
+function evDay(key) {
+  let d = evDays.get(key);
+  if (!d) { d = { pairs: new Map(), countries: new Map() }; evDays.set(key, d); }
+  return d;
+}
+
+/* Abre un .zip de un solo archivo usando solo herramientas de Node */
+function unzipFirst(buf) {
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("ZIP inválido");
+  const cd = buf.readUInt32LE(eocd + 16);
+  if (buf.readUInt32LE(cd) !== 0x02014b50) throw new Error("ZIP inválido");
+  const method = buf.readUInt16LE(cd + 10);
+  const csize = buf.readUInt32LE(cd + 20);
+  const lho = buf.readUInt32LE(cd + 42);
+  const start = lho + 30 + buf.readUInt16LE(lho + 26) + buf.readUInt16LE(lho + 28);
+  const data = buf.subarray(start, start + csize);
+  return method === 0 ? data : zlib.inflateRawSync(data);
+}
+
+function ingestEvents(text, weight, dayKey) {
+  const day = evDay(dayKey);
+  let start = 0;
+  while (start < text.length) {
+    let end = text.indexOf("\n", start);
+    if (end < 0) end = text.length;
+    const line = text.slice(start, end);
+    start = end + 1;
+    if (line.length < 50) continue;
+    const f = line.split("\t");
+    if (f.length < 35) continue;
+    const a = f[7], b = f[17];
+    const validA = a && a.length === 3, validB = b && b.length === 3;
+    if (validA) day.countries.set(a, (day.countries.get(a) || 0) + weight);
+    if (validB && b !== a) day.countries.set(b, (day.countries.get(b) || 0) + weight);
+    if (!validA || !validB || a === b) continue;
+    const quad = f[29], g = parseFloat(f[30]);
+    if (!Number.isFinite(g)) continue;
+    const arts = Math.max(1, parseInt(f[33], 10) || 1);
+    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+    let r = day.pairs.get(key);
+    if (!r) { r = { n: 0, w: 0, wg: 0, wc: 0, wm: 0, u: [] }; day.pairs.set(key, r); }
+    const w = arts * weight;
+    r.n += weight; r.w += w; r.wg += w * g;
+    if (quad === "3" || quad === "4") r.wc += w;
+    if (quad === "4") r.wm += w;
+    const url = f[f.length - 1];
+    if (/^https?:\/\//.test(url)) {
+      const score = arts * (quad === "3" || quad === "4" ? 2 : 1);
+      if (r.u.length < 3 || score > r.u[r.u.length - 1][0]) {
+        if (!r.u.some(x => x[1] === url)) {
+          r.u.push([score, url.slice(0, 300), quad]);
+          r.u.sort((x, y) => y[0] - x[0]);
+          if (r.u.length > 3) r.u.length = 3;
+        }
       }
     }
-  } finally { coverageRunning = false; }
+  }
 }
+
+function stampOf(t) { return new Date(t).toISOString().replace(/[-:T]/g, "").slice(0, 14); }
+function stampTime(s) { return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12)); }
+
+async function loadEventFile(stamp, weight) {
+  if (evProcessed.has(stamp)) return;
+  evProcessed.add(stamp);
+  try {
+    let r;
+    try {
+      r = await fetch(`http://data.gdeltproject.org/gdeltv2/${stamp}.export.CSV.zip`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(45000) });
+    } catch (e) { throw networkError(e); }
+    if (r.status === 404) { evStatus.filesMissing++; return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const text = unzipFirst(Buffer.from(await r.arrayBuffer())).toString("utf8");
+    ingestEvents(text, weight, stamp.slice(0, 8));
+    evStatus.filesOk++;
+    if (!evStatus.lastFile || stamp > evStatus.lastFile) evStatus.lastFile = stamp;
+  } catch (e) {
+    evStatus.filesFailed++;
+    evStatus.lastError = hideKeys(e.message);
+    evProcessed.delete(stamp); // se puede reintentar después
+  }
+}
+
+function pruneOldDays() {
+  const keep = new Set(lastDayKeys(EV_DAYS + 1));
+  for (const k of evDays.keys()) if (!keep.has(k)) evDays.delete(k);
+}
+
+async function backfillEvents() {
+  const stamps = [];
+  const cutoff = EV_START - 20 * 60 * 1000;
+  for (let d = 0; d < EV_DAYS; d++) {
+    const day = new Date(EV_START - d * DAY);
+    for (let h = 24 - SAMPLE_EVERY_H; h >= 0; h -= SAMPLE_EVERY_H) {
+      const t = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, 0);
+      if (t <= cutoff) stamps.push(stampOf(t));
+    }
+  }
+  stamps.sort().reverse(); // primero lo más reciente
+  evStatus.filesTotal = stamps.length;
+  let i = 0;
+  const worker = async () => { while (i < stamps.length) await loadEventFile(stamps[i++], SAMPLE_WEIGHT); };
+  await Promise.all([worker(), worker()]);
+  // segundo intento para los que fallaron
+  const failed = stamps.filter(s => !evProcessed.has(s));
+  for (const s of failed) await loadEventFile(s, SAMPLE_WEIGHT);
+  evStatus.loading = false;
+  pruneOldDays();
+}
+
+async function pollLatestEvents() {
+  try {
+    let r;
+    try { r = await fetch("http://data.gdeltproject.org/gdeltv2/lastupdate.txt", { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(20000) }); }
+    catch (e) { throw networkError(e); }
+    const txt = await r.text();
+    const m = txt.match(/(\d{14})\.export\.CSV\.zip/);
+    if (m && stampTime(m[1]) >= EV_START - 20 * 60 * 1000) await loadEventFile(m[1], 1);
+    pruneOldDays();
+  } catch (e) { evStatus.lastError = hideKeys(e.message); }
+}
+
+function lastDayKeys(n, offset = 0) {
+  const out = [];
+  for (let d = offset; d < offset + n; d++) out.push(ymdCompact(new Date(Date.now() - d * DAY)));
+  return out;
+}
+const daysWithData = () => [...evDays.values()].filter(d => d.pairs.size > 0).length;
+
+function sumPairs(keys, filter) {
+  const out = new Map();
+  for (const k of keys) {
+    const day = evDays.get(k);
+    if (!day) continue;
+    for (const [pair, r] of day.pairs) {
+      if (filter && !filter(pair)) continue;
+      let s = out.get(pair);
+      if (!s) { s = { n: 0, w: 0, wg: 0, wc: 0, wm: 0 }; out.set(pair, s); }
+      s.n += r.n; s.w += r.w; s.wg += r.wg; s.wc += r.wc; s.wm += r.wm;
+    }
+  }
+  return out;
+}
+
+/* Índice de tensión 0-100 (se explica en la app, botón "¿Cómo se calcula?") */
+function tensionOf(r) {
+  if (!r || !r.w) return null;
+  const conflict = r.wc / r.w, material = r.wm / r.w, goldstein = r.wg / r.w;
+  const gScore = Math.min(1, Math.max(0, (3 - goldstein) / 10));
+  const index = Math.round(100 * (0.4 * conflict + 0.3 * Math.min(1, material * 2) + 0.3 * gScore));
+  return { index, level: levelOf(index), goldstein: +goldstein.toFixed(2), conflict: +conflict.toFixed(3), material: +material.toFixed(3), events: Math.round(r.n) };
+}
+function levelOf(i) { return i >= 65 ? "critica" : i >= 45 ? "tension" : i >= 25 ? "roces" : "estable"; }
+const minEvents = days => Math.max(15, days * 4);
+
+function eventsStatus() {
+  return {
+    loading: evStatus.loading, days: daysWithData(), daysTarget: EV_DAYS,
+    filesOk: evStatus.filesOk, filesTotal: evStatus.filesTotal, lastFile: evStatus.lastFile && toISO(evStatus.lastFile),
+    lastError: evStatus.lastError
+  };
+}
+
+/* Arranca la descarga apenas inicia el servidor */
+setTimeout(() => { pollLatestEvents(); backfillEvents(); }, 3000);
+setInterval(pollLatestEvents, 15 * 60 * 1000);
 
 /* ------------------------------------------------------------------ */
 /* 6. Datos de contexto del país                                       */
@@ -805,14 +976,84 @@ app.get("/api/news", async (req, res) => {
   }
 });
 
+const validCode3 = s => /^[A-Z]{3}$/.test(String(s || "").toUpperCase());
+
 app.get("/api/coverage", (req, res) => {
-  const codes = String(req.query.codes || "").toUpperCase().split(",").filter(c => /^[A-Z]{2}$/.test(c)).slice(0, 320);
-  for (const c of codes) {
-    const e = coverage[c];
-    if (!e || Date.now() - e.at > COVERAGE_TTL) coverageQueue.add(c);
+  const counts = {};
+  for (const k of lastDayKeys(7)) {
+    const d = evDays.get(k);
+    if (d) for (const [c, n] of d.countries) counts[c] = (counts[c] || 0) + n;
   }
-  runCoverage();
-  res.json({ coverage, pending: coverageQueue.size });
+  for (const c in counts) counts[c] = Math.round(counts[c]);
+  res.json({ coverage, events: counts, eventsReady: daysWithData() > 0, status: eventsStatus() });
+});
+
+/* Termómetro de un país: con quién tiene relación y qué tan tensa */
+app.get("/api/tensiones", (req, res) => {
+  const code = String(req.query.code || "").toUpperCase();
+  if (!validCode3(code)) return res.status(400).json({ error: "Código de país no válido" });
+  const days = req.query.days === "30" ? 30 : 7;
+  const has = p => p.startsWith(code + "|") || p.endsWith("|" + code);
+  const now = sumPairs(lastDayKeys(days), has);
+  const before = sumPairs(lastDayKeys(days, days), has);
+  const total = { n: 0, w: 0, wg: 0, wc: 0, wm: 0 };
+  const partners = [];
+  for (const [pair, r] of now) {
+    for (const k of ["n", "w", "wg", "wc", "wm"]) total[k] += r[k];
+    if (r.n < minEvents(days)) continue;
+    const other = pair.split("|").find(x => x !== code);
+    const t = tensionOf(r);
+    const prev = before.get(pair);
+    const p = prev && prev.n >= minEvents(days) / 2 ? tensionOf(prev) : null;
+    partners.push({ code: other, ...t, change: p ? t.index - p.index : null });
+  }
+  partners.sort((a, b) => b.events - a.events);
+  res.json({ code, days, overall: total.n ? tensionOf(total) : null, partners: partners.slice(0, 18), status: eventsStatus() });
+});
+
+/* Ranking mundial de relaciones más tensas y más cooperativas */
+app.get("/api/calientes", (req, res) => {
+  const days = req.query.days === "30" ? 30 : 7;
+  const now = sumPairs(lastDayKeys(days));
+  const before = sumPairs(lastDayKeys(days, days));
+  const min = days * 25;
+  const list = [];
+  for (const [pair, r] of now) {
+    if (r.n < min) continue;
+    const t = tensionOf(r);
+    const prev = before.get(pair);
+    const p = prev && prev.n >= min / 2 ? tensionOf(prev) : null;
+    const [a, b] = pair.split("|");
+    list.push({ a, b, ...t, change: p ? t.index - p.index : null });
+  }
+  const hot = list.filter(x => x.index >= 25).sort((x, y) => y.index - x.index || y.events - x.events).slice(0, 40);
+  const calm = list.filter(x => x.index < 25).sort((x, y) => x.index - y.index || y.events - x.events).slice(0, 25);
+  res.json({ days, hot, calm, status: eventsStatus() });
+});
+
+/* Historia de una relación: día por día */
+app.get("/api/relacion", (req, res) => {
+  const a = String(req.query.a || "").toUpperCase(), b = String(req.query.b || "").toUpperCase();
+  if (!validCode3(a) || !validCode3(b) || a === b) return res.status(400).json({ error: "Elige dos países distintos" });
+  const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+  const keys = lastDayKeys(EV_DAYS).reverse();
+  const series = [];
+  const total = { n: 0, w: 0, wg: 0, wc: 0, wm: 0 };
+  for (const k of keys) {
+    const day = evDays.get(k);
+    if (!day || !day.pairs.size) continue;
+    const r = day.pairs.get(key);
+    const date = `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}`;
+    if (!r) { series.push({ date, events: 0, index: null }); continue; }
+    for (const f of ["n", "w", "wg", "wc", "wm"]) total[f] += r[f];
+    const t = tensionOf(r);
+    series.push({ date, events: t.events, index: r.n >= 3 ? t.index : null, level: t.level, goldstein: t.goldstein,
+      sources: r.u.map(x => ({ url: x[1], conflict: x[2] === "3" || x[2] === "4" })) });
+  }
+  const last7 = tensionOf(sumPairs(lastDayKeys(7), p => p === key).get(key));
+  const peaks = series.filter(s => s.index !== null && s.events >= 5).sort((x, y) => y.index - x.index).slice(0, 3)
+    .map(s => ({ date: s.date, index: s.index, level: s.level, events: s.events, sources: s.sources }));
+  res.json({ a, b, days: series.length, summary: total.n ? tensionOf(total) : null, last7, series: series.map(({ sources, ...s }) => s), peaks, status: eventsStatus() });
 });
 
 app.get("/api/country", async (req, res) => {
