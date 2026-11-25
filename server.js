@@ -134,11 +134,16 @@ function hideKeys(msg) {
 }
 
 async function getJSON(url, { headers = {}, method = "GET", body, timeout = 12000 } = {}) {
-  const res = await fetch(url, {
-    method, body,
-    headers: { "User-Agent": UA, Accept: "application/json", ...headers },
-    signal: AbortSignal.timeout(timeout)
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method, body,
+      headers: { "User-Agent": UA, Accept: "application/json", ...headers },
+      signal: AbortSignal.timeout(timeout)
+    });
+  } catch (e) {
+    throw networkError(e);
+  }
   const text = await res.text();
   let data = null;
   try { data = JSON.parse(text); } catch { /* no era JSON */ }
@@ -149,6 +154,16 @@ async function getJSON(url, { headers = {}, method = "GET", body, timeout = 1200
   }
   if (data === null) throw new Error(text.trim().slice(0, 160) || "Respuesta vacía");
   return data;
+}
+
+/* Explica por qué no hubo conexión (DNS, certificado, conexión cortada, tiempo agotado...) */
+function networkError(e) {
+  const c = e.cause || {};
+  const code = c.code || c.name || (e.name === "TimeoutError" ? "TIMEOUT" : "");
+  const detail = c.message && !String(c.message).includes(code) ? `: ${c.message}` : "";
+  const err = new Error(`${e.name === "TimeoutError" ? "Tiempo agotado" : "Sin conexión"}${code ? ` (${code}${detail})` : ""}`);
+  err.network = true;
+  return err;
 }
 
 function withTimeout(promise, ms) {
@@ -407,7 +422,7 @@ async function pNyt(ctx) {
 
 /* GDELT pide máximo una consulta cada 5 segundos: todas pasan por esta fila */
 const gdeltQueue = { high: [], low: [] };
-let gdeltBusy = false, gdeltLast = 0, gdeltGap = 5500;
+let gdeltBusy = false, gdeltLast = 0, gdeltGap = 5500, gdeltScheme = "https";
 function gdeltFetch(url, priority = "high") {
   return new Promise((resolve, reject) => {
     gdeltQueue[priority].push({ url, resolve, reject, t: Date.now() });
@@ -425,7 +440,16 @@ async function runGdelt() {
       if (Date.now() - job.t > 60000 && job.url.includes("maxrecords=75")) { job.reject(new Error("Consulta vencida")); continue; }
       gdeltLast = Date.now();
       try {
-        const d = await getJSON(job.url, { timeout: 15000 });
+        let d;
+        const url = gdeltScheme === "http" ? job.url.replace("https://", "http://") : job.url;
+        try {
+          d = await getJSON(url, { timeout: 15000 });
+        } catch (e) {
+          if (!e.network) throw e;
+          const other = url.startsWith("https://") ? url.replace("https://", "http://") : url.replace("http://", "https://");
+          d = await getJSON(other, { timeout: 15000 });
+          gdeltScheme = other.startsWith("https://") ? "https" : "http";
+        }
         gdeltGap = 5500;
         job.resolve(d);
       } catch (e) {
@@ -680,6 +704,53 @@ async function comtrade(c) {
 /* 7. Rutas                                                            */
 /* ------------------------------------------------------------------ */
 app.use(express.static(path.join(__dirname, "public")));
+
+/* Para cron-job.org: lo visita cada 10 minutos y así Render no apaga la app */
+app.get("/api/ping", (req, res) => res.json({ ok: true, hora: new Date().toISOString() }));
+
+/* Página de diagnóstico: prueba la conexión con cada servicio y muestra la causa de los errores */
+let diagRunning = false;
+app.get("/api/diagnostico", async (req, res) => {
+  if (diagRunning) return res.send("<p>Ya hay un diagnóstico en curso. Espera 30 segundos y recarga.</p>");
+  diagRunning = true;
+  const rows = [];
+  async function test(name, fn) {
+    const t = Date.now();
+    try { rows.push([name, "OK", await fn(), Date.now() - t]); }
+    catch (e) { rows.push([name, "ERROR", hideKeys(e.message), Date.now() - t]); }
+  }
+  async function getText(url) {
+    let r;
+    try { r = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(15000) }); }
+    catch (e) { throw networkError(e); }
+    const text = await r.text();
+    if (!r.ok) throw new Error(`${r.status} ${text.slice(0, 100)}`);
+    return text;
+  }
+  const doc = "api.gdeltproject.org/api/v2/doc/doc?query=Colombia&mode=ArtList&format=json&maxrecords=5&timespan=1d";
+  try {
+    await test("GDELT noticias (https)", async () => `${(JSON.parse(await getText("https://" + doc)).articles || []).length} noticias`);
+    await sleep(6000);
+    await test("GDELT noticias (http)", async () => `${(JSON.parse(await getText("http://" + doc)).articles || []).length} noticias`);
+    await test("GDELT eventos (http)", async () => (await getText("http://data.gdeltproject.org/gdeltv2/lastupdate.txt")).split("\n")[0].slice(0, 90));
+    await test("GDELT eventos (https)", async () => (await getText("https://data.gdeltproject.org/gdeltv2/lastupdate.txt")).split("\n")[0].slice(0, 90));
+    if (KEYS.currents) {
+      await test("Currents: búsqueda Colombia", async () => `${(await getJSON(`https://api.currentsapi.services/v1/search?keywords=Colombia&apiKey=${KEYS.currents}`)).news?.length ?? "?"} noticias`);
+      await test("Currents: últimas en español", async () => `${(await getJSON(`https://api.currentsapi.services/v1/latest-news?language=es&apiKey=${KEYS.currents}`)).news?.length ?? "?"} noticias`);
+    }
+    if (KEYS.newsapiai) {
+      const er = body => getJSON("https://eventregistry.org/api/v1/article/getArticles", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "getArticles", resultType: "articles", articlesCount: 10, apiKey: KEYS.newsapiai, ...body }) });
+      await test("NewsAPI.ai: Colombia simple", async () => { const d = await er({ keyword: "Colombia" }); if (d.error) throw new Error(d.error); return `${d.articles?.results?.length ?? "?"} noticias`; });
+      await test("NewsAPI.ai: Colombia en títulos", async () => { const d = await er({ keyword: ["Colombia"], keywordOper: "or", keywordLoc: "title", lang: ["spa", "eng"] }); if (d.error) throw new Error(d.error); return `${d.articles?.results?.length ?? "?"} noticias`; });
+    }
+  } finally { diagRunning = false; }
+  const esc = s => String(s).replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
+  res.send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico</title>
+<body style="background:#06131f;color:#edf3f7;font-family:system-ui,sans-serif;padding:20px"><h2>Diagnóstico de conexiones</h2>
+<p style="color:#9eb0be">Node ${process.version} · ${new Date().toISOString()} · GDELT usa: ${gdeltScheme}</p>
+<table style="border-collapse:collapse;font-size:13px">${rows.map(r => `<tr><td style="padding:8px;border-bottom:1px solid #284154">${esc(r[0])}</td><td style="padding:8px;border-bottom:1px solid #284154;color:${r[1] === "OK" ? "#6fd39b" : "#d98b83"}">${r[1]}</td><td style="padding:8px;border-bottom:1px solid #284154">${esc(r[2])}</td><td style="padding:8px;border-bottom:1px solid #284154;color:#9eb0be">${r[3]} ms</td></tr>`).join("")}</table></body>`);
+});
 
 app.get("/api/config", (req, res) => {
   res.json({
