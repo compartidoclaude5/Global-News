@@ -847,28 +847,134 @@ async function comtradeReporters() {
   cacheSet("comtrade-reporters", list, 7 * DAY);
   return list;
 }
-async function comtrade(c) {
-  if (!c.code && !c.iso3) return null;
+/* ---------- UN Comtrade: comercio por socio, historia y productos ---------- */
+const ctBase = () => KEYS.comtrade ? "https://comtradeapi.un.org/data/v1/get/C/A/HS" : "https://comtradeapi.un.org/public/v1/preview/C/A/HS";
+const ctHeaders = () => KEYS.comtrade ? { "Ocp-Apim-Subscription-Key": KEYS.comtrade } : {};
+let ctChain = Promise.resolve();
+/* Nombres en español de los capítulos del Sistema Armonizado (HS) */
+const HS_ES = {"1": "Animales vivos", "2": "Carne", "3": "Pescados y mariscos", "4": "Lácteos, huevos y miel", "5": "Otros productos de origen animal", "6": "Flores y plantas vivas", "7": "Hortalizas", "8": "Frutas y frutos secos", "9": "Café, té y especias", "10": "Cereales", "11": "Harinas y almidones", "12": "Semillas oleaginosas", "13": "Gomas y resinas vegetales", "14": "Otros productos vegetales", "15": "Grasas y aceites", "16": "Preparaciones de carne y pescado", "17": "Azúcar y confitería", "18": "Cacao y sus preparaciones", "19": "Productos de panadería y cereales", "20": "Conservas de frutas y hortalizas", "21": "Preparaciones alimenticias diversas", "22": "Bebidas y alcohol", "23": "Alimentos para animales", "24": "Tabaco", "25": "Sal, piedra y cemento", "26": "Minerales metálicos", "27": "Petróleo, carbón y combustibles", "28": "Químicos inorgánicos", "29": "Químicos orgánicos", "30": "Productos farmacéuticos", "31": "Abonos", "32": "Tintas y pinturas", "33": "Perfumes y cosméticos", "34": "Jabones y detergentes", "35": "Proteínas y colas", "36": "Explosivos", "37": "Productos fotográficos", "38": "Productos químicos diversos", "39": "Plásticos", "40": "Caucho", "41": "Cueros", "42": "Artículos de cuero", "43": "Peletería", "44": "Madera", "45": "Corcho", "46": "Cestería", "47": "Pasta de papel", "48": "Papel y cartón", "49": "Libros e impresos", "50": "Seda", "51": "Lana", "52": "Algodón", "53": "Otras fibras vegetales", "54": "Filamentos sintéticos", "55": "Fibras sintéticas", "56": "Guata y cordelería", "57": "Alfombras", "58": "Tejidos especiales", "59": "Telas técnicas", "60": "Tejidos de punto", "61": "Ropa de punto", "62": "Ropa (excepto de punto)", "63": "Otros textiles", "64": "Calzado", "65": "Sombreros", "66": "Paraguas", "67": "Plumas y flores artificiales", "68": "Manufacturas de piedra", "69": "Cerámica", "70": "Vidrio", "71": "Oro, piedras y metales preciosos", "72": "Hierro y acero", "73": "Manufacturas de hierro y acero", "74": "Cobre", "75": "Níquel", "76": "Aluminio", "78": "Plomo", "79": "Zinc", "80": "Estaño", "81": "Otros metales", "82": "Herramientas", "83": "Manufacturas de metal", "84": "Maquinaria", "85": "Aparatos eléctricos y electrónicos", "86": "Trenes", "87": "Vehículos y autopartes", "88": "Aeronaves", "89": "Barcos", "90": "Instrumentos ópticos y médicos", "91": "Relojes", "92": "Instrumentos musicales", "93": "Armas y municiones", "94": "Muebles", "95": "Juguetes y deportes", "96": "Manufacturas diversas", "97": "Obras de arte", "99": "Otros"};
+/* Comtrade limita las consultas por segundo: se hacen de una en una */
+function ctGet(params) {
+  const run = async () => {
+    await sleep(1100);
+    const q = new URLSearchParams({ partner2Code: "0", customsCode: "C00", motCode: "0", includeDesc: "true", ...params });
+    const d = await getJSON(`${ctBase()}?${q}`, { headers: ctHeaders(), timeout: 25000 });
+    if (d.error) throw new Error(typeof d.error === "string" ? d.error : JSON.stringify(d.error));
+    return d.data || [];
+  };
+  const p = ctChain.then(run, run);
+  ctChain = p.catch(() => {});
+  return p;
+}
+async function comtradePartners() {
+  const hit = cacheGet("comtrade-partners");
+  if (hit) return hit;
+  const d = await getJSON("https://comtradeapi.un.org/files/v1/app/reference/partnerAreas.json");
+  const map = new Map();
+  for (const r of d.results || []) {
+    map.set(Number(r.id ?? r.PartnerCode), {
+      name: r.text || r.PartnerDesc, isGroup: Boolean(r.isGroup),
+      iso3: r.PartnerCodeIsoAlpha3 || r.partnerCodeIsoAlpha3 || ""
+    });
+  }
+  cacheSet("comtrade-partners", map, 7 * DAY);
+  return map;
+}
+async function reporterCodeFor(c) {
+  if (!c || (!c.code && !c.iso3)) return null;
   const reporters = await comtradeReporters();
   const rep = reporters.find(r => (c.iso3 && r.reporterCodeIsoAlpha3 === c.iso3) || (c.code && r.reporterCodeIsoAlpha2 === c.code));
-  if (!rep) return null;
-  const code = rep.reporterCode ?? rep.id;
-  const base = KEYS.comtrade ? "https://comtradeapi.un.org/data/v1/get/C/A/HS" : "https://comtradeapi.un.org/public/v1/preview/C/A/HS";
-  const headers = KEYS.comtrade ? { "Ocp-Apim-Subscription-Key": KEYS.comtrade } : {};
+  return rep ? (rep.reporterCode ?? rep.id) : null;
+}
+const NOT_COUNTRY = /\bnes\b|n\.e\.s|bunkers|free zones|special categories|not specified|areas,/i;
+
+/* Todo el comercio de un país: totales de 10 años, socios y productos del último año */
+async function tradeData(c) {
+  const key = "trade:" + (c.iso3 || c.code);
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  const code = await reporterCodeFor(c);
+  if (!code) return null;
   const y = new Date().getFullYear();
-  const common = { reporterCode: String(code), partnerCode: "0", partner2Code: "0", customsCode: "C00", motCode: "0", includeDesc: "true" };
-  const totals = await getJSON(`${base}?${new URLSearchParams({ ...common, period: [y - 1, y - 2, y - 3].join(","), flowCode: "X,M", cmdCode: "TOTAL" })}`, { headers });
-  const rows = totals.data || [];
-  const year = rows.filter(r => r.flowCode === "X").map(r => Number(r.period)).sort((a, b) => b - a)[0];
-  if (!year) return null;
-  const pick = f => rows.find(r => Number(r.period) === year && r.flowCode === f)?.primaryValue ?? null;
-  let top = [];
+  const years = Array.from({ length: 10 }, (_, i) => y - 1 - i);
+  const hist = await ctGet({ reporterCode: String(code), period: years.join(","), partnerCode: "0", flowCode: "X,M", cmdCode: "TOTAL" });
+  const byYear = new Map();
+  for (const r of hist) {
+    const yr = Number(r.period);
+    const e = byYear.get(yr) || { year: yr, exports: null, imports: null };
+    if (r.flowCode === "X") e.exports = r.primaryValue;
+    if (r.flowCode === "M") e.imports = r.primaryValue;
+    byYear.set(yr, e);
+  }
+  const history = [...byYear.values()].sort((a, b) => a.year - b.year);
+  const latest = [...history].reverse().find(h => h.exports != null);
+  if (!latest) return null;
+  const out = { year: latest.year, exports: latest.exports, imports: latest.imports, history, partnersX: [], partnersM: [], products: [] };
+
   try {
-    const t = await getJSON(`${base}?${new URLSearchParams({ ...common, period: String(year), flowCode: "X", cmdCode: "AG2" })}`, { headers });
-    top = (t.data || []).filter(r => r.cmdCode !== "TOTAL").sort((a, b) => b.primaryValue - a.primaryValue).slice(0, 3)
-      .map(r => ({ name: String(r.cmdDesc || r.cmdCode).split(";")[0], value: r.primaryValue }));
-  } catch { /* sin detalle de productos */ }
-  return { year, exports: pick("X"), imports: pick("M"), topExports: top };
+    const [rows, areas] = await Promise.all([
+      ctGet({ reporterCode: String(code), period: String(latest.year), flowCode: "X,M", cmdCode: "TOTAL" }),
+      comtradePartners().catch(() => new Map())
+    ]);
+    for (const r of rows) {
+      const pc = Number(r.partnerCode);
+      if (!pc) continue; // 0 = Mundo
+      const info = areas.get(pc) || {};
+      let name = r.partnerDesc || info.name || String(pc), iso3 = r.partnerISO || info.iso3 || "";
+      if (pc === 490) { name = "Taiwan"; iso3 = "TWN"; } // Comtrade lo llama "Other Asia, nes"
+      else if (info.isGroup || NOT_COUNTRY.test(name)) continue;
+      if (!/^[A-Z]{3}$/.test(iso3)) continue;
+      const item = { iso3, name, value: r.primaryValue };
+      if (r.flowCode === "X") out.partnersX.push(item);
+      if (r.flowCode === "M") out.partnersM.push(item);
+    }
+    const finish = (list, total) => list.sort((a, b) => b.value - a.value).map(p => ({ ...p, share: total ? p.value / total : null }));
+    out.partnersX = finish(out.partnersX, out.exports);
+    out.partnersM = finish(out.partnersM, out.imports);
+  } catch (e) { out.partnersError = hideKeys(e.message); }
+
+  try {
+    const t = await ctGet({ reporterCode: String(code), period: String(latest.year), partnerCode: "0", flowCode: "X", cmdCode: "AG2" });
+    out.products = t.filter(r => r.cmdCode !== "TOTAL").sort((a, b) => b.primaryValue - a.primaryValue).slice(0, 10)
+      .map(r => ({ code: r.cmdCode, name: HS_ES[Number(r.cmdCode)] || String(r.cmdDesc || r.cmdCode).split(";")[0], value: r.primaryValue, share: out.exports ? r.primaryValue / out.exports : null }));
+  } catch (e) { out.productsError = hideKeys(e.message); }
+
+  cacheSet(key, out, DAY);
+  return out;
+}
+/* Resumen corto para la ficha del país */
+async function comtrade(c) {
+  const t = await tradeData(c);
+  return t ? { year: t.year, exports: t.exports, imports: t.imports, topExports: t.products.slice(0, 3) } : null;
+}
+
+/* ---------- Banco Mundial: series históricas ---------- */
+const WB_SERIES = {
+  gdp:        { id: "NY.GDP.MKTP.CD",    label: "PIB",                    unit: "usd" },
+  growth:     { id: "NY.GDP.MKTP.KD.ZG", label: "Crecimiento del PIB",    unit: "pct" },
+  gdppc:      { id: "NY.GDP.PCAP.CD",    label: "PIB por persona",        unit: "usd" },
+  inflation:  { id: "FP.CPI.TOTL.ZG",    label: "Inflación",              unit: "pct" },
+  military:   { id: "MS.MIL.XPND.GD.P",  label: "Gasto militar (% del PIB)", unit: "pct" },
+  unemployment: { id: "SL.UEM.TOTL.ZS",  label: "Desempleo",              unit: "pct" }
+};
+async function wbSeries(iso3s, ind) {
+  const def = WB_SERIES[ind];
+  const key = `wb:${ind}:${iso3s.join(";")}`;
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  const y = new Date().getFullYear();
+  const d = await getJSON(`https://api.worldbank.org/v2/country/${iso3s.join(";")}/indicator/${def.id}?format=json&date=1995:${y}&per_page=1000`);
+  if (!Array.isArray(d) || !Array.isArray(d[1])) throw new Error(d?.[0]?.message?.[0]?.value || "Sin datos del Banco Mundial");
+  const series = {};
+  for (const r of d[1]) {
+    if (r.value === null) continue;
+    const c = r.countryiso3code || r.country?.id;
+    (series[c] = series[c] || []).push({ year: Number(r.date), value: r.value });
+  }
+  for (const c in series) series[c].sort((a, b) => a.year - b.year);
+  const out = { ind, label: def.label, unit: def.unit, series };
+  cacheSet(key, out, DAY);
+  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1054,6 +1160,69 @@ app.get("/api/relacion", (req, res) => {
   const peaks = series.filter(s => s.index !== null && s.events >= 5).sort((x, y) => y.index - x.index).slice(0, 3)
     .map(s => ({ date: s.date, index: s.index, level: s.level, events: s.events, sources: s.sources }));
   res.json({ a, b, days: series.length, summary: total.n ? tensionOf(total) : null, last7, series: series.map(({ sources, ...s }) => s), peaks, status: eventsStatus() });
+});
+
+
+/* ---------- Datos para gráficas ---------- */
+app.get("/api/serie", async (req, res) => {
+  const ind = WB_SERIES[req.query.ind] ? req.query.ind : "gdp";
+  const iso3s = String(req.query.iso3 || "").toUpperCase().split(",").filter(validCode3).slice(0, 4);
+  if (!iso3s.length) return res.status(400).json({ error: "Falta el país" });
+  try { res.json(await wbSeries(iso3s, ind)); }
+  catch (e) { res.status(502).json({ error: hideKeys(e.message) }); }
+});
+
+app.get("/api/comercio", async (req, res) => {
+  const c = countryFrom(req.query);
+  if (!c) return res.status(400).json({ error: "País no válido" });
+  try {
+    const t = await tradeData(c);
+    if (!t) return res.json({ country: c, trade: null });
+    lastStatus.comtrade = { id: "comtrade", status: "ok", count: t.partnersX.length, at: new Date().toISOString() };
+    res.json({ country: c, trade: { ...t, partnersX: t.partnersX.slice(0, 15), partnersM: t.partnersM.slice(0, 15) } });
+  } catch (e) {
+    lastStatus.comtrade = { id: "comtrade", status: "error", error: hideKeys(e.message), at: new Date().toISOString() };
+    res.status(502).json({ error: hideKeys(e.message) });
+  }
+});
+
+/* "Si se pelean, ¿quién pierde más?": qué parte de sus exportaciones manda cada uno al otro */
+app.get("/api/dependencia", async (req, res) => {
+  const A = countryFrom({ code: req.query.acode, iso3: req.query.a }), B = countryFrom({ code: req.query.bcode, iso3: req.query.b });
+  if (!A || !B || !A.iso3 || !B.iso3) return res.status(400).json({ error: "Faltan los países" });
+  try {
+    const ta = await tradeData(A);
+    if (!ta || !ta.partnersX.length) return res.json({ available: false });
+    const xAB = ta.partnersX.find(p => p.iso3 === B.iso3)?.value || 0;
+    const mAB = ta.partnersM.find(p => p.iso3 === B.iso3)?.value || 0; // lo que A le compra a B = lo que B le vende a A
+    let tb = null;
+    try { tb = await tradeData(B); } catch { tb = null; }
+    const shareA = ta.exports ? xAB / ta.exports : null;
+    const shareB = tb?.exports ? mAB / tb.exports : null;
+    res.json({
+      available: true, year: ta.year,
+      a: { iso3: A.iso3, exportsTo: xAB, totalExports: ta.exports, share: shareA, importsFrom: mAB, importShare: ta.imports ? mAB / ta.imports : null },
+      b: { iso3: B.iso3, exportsTo: mAB, totalExports: tb?.exports ?? null, share: shareB, year: tb?.year ?? null },
+      balance: xAB - mAB
+    });
+  } catch (e) { res.status(502).json({ error: hideKeys(e.message) }); }
+});
+
+/* Clima internacional de un país día por día (índice de tensión con todos sus socios) */
+app.get("/api/clima", (req, res) => {
+  const code = String(req.query.code || "").toUpperCase();
+  if (!validCode3(code)) return res.status(400).json({ error: "Código no válido" });
+  const has = p => p.startsWith(code + "|") || p.endsWith("|" + code);
+  const series = [];
+  for (const k of lastDayKeys(EV_DAYS).reverse()) {
+    const day = evDays.get(k);
+    if (!day || !day.pairs.size) continue;
+    const tot = { n: 0, w: 0, wg: 0, wc: 0, wm: 0 };
+    for (const [pair, r] of day.pairs) if (has(pair)) for (const f of ["n", "w", "wg", "wc", "wm"]) tot[f] += r[f];
+    const t = tot.n >= 5 ? tensionOf(tot) : null;
+    series.push({ date: `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}`, events: Math.round(tot.n), index: t ? t.index : null, level: t ? t.level : null });
+  }
+  res.json({ code, series, status: eventsStatus() });
 });
 
 app.get("/api/country", async (req, res) => {
